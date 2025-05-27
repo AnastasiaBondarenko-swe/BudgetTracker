@@ -100,6 +100,18 @@ int main(int argc, char *argv[]) {
                 break;
             case 3:
                 sortEntries(entries, count);
+                printEntries(entries, count);
+                break;
+            case 4:
+                addEntry(entries, count);
+                count = loadEntries(argv[1], entries); // refresh with up-to-date file
+                break;
+            case 5:
+                modifyEntry(entries, count, argv[1]);
+                count = loadEntries(argv[1], entries); // reload to reflect change
+                break;
+            case 6:
+                filterByMonth(entries, count);
                 break;
             case 7:
                 printf("Goodbye and thanks for using our budget tracker app!\n");

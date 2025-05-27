@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 #include "budget.h"
 
 void showExpenseDistribution(Entry entries[], int count) {
@@ -98,13 +99,165 @@ void sortEntries(Entry entries[], int count) {
             printf("Invalid sort option.\n");
             return;
     }
-
-    // Show sorted entries
-    printEntries(entries, count);
 }
 
-void printEntries(Entry entries[], int count) {
-    printf("Sort Menu");
+void addEntry(Entry entries[], int count) {
+    Entry newEntry;
+    newEntry.id = (count == 0) ? 1 : entries[count - 1].id + 1;
 
-    printf("Choice: %-1i",count);  
+    char useToday;
+    printf("Use today's date? (y/n): ");
+    scanf(" %c", &useToday);
+
+    if (useToday == 'y' || useToday == 'Y') {
+        time_t t = time(NULL);
+        struct tm tm = *localtime(&t);
+        snprintf(newEntry.date, sizeof(newEntry.date), "%04d-%02d-%02d",
+                 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
+    } else {
+        printf("Enter date (YYYY-MM-DD): ");
+        scanf("%s", newEntry.date);
+    }
+    
+    printf("Enter type (Income/Expense): ");
+    scanf("%s", newEntry.type);
+
+    printf("Enter category: ");
+    scanf("%s", newEntry.category);
+
+    printf("Enter description: ");
+    getchar(); // Consume leftover newline
+    fgets(newEntry.description, sizeof(newEntry.description), stdin);
+    newEntry.description[strcspn(newEntry.description, "\n")] = 0; // remove trailing newline
+
+    printf("Enter amount: ");
+    scanf("%f", &newEntry.amount);
+
+    entries[count] = newEntry;
+    count++;
+
+    // Append entry to finances.txt
+    FILE *file = fopen("finances.txt", "a");
+    if (file == NULL) {
+        printf("Error: Unable to open finances.txt for writing.\n");
+    }
+    // Write in correct format: ID|DATE|TYPE|CATEGORY|DESCRIPTION|AMOUNT
+    fprintf(file, "%d|%s|%s|%s|%s|%.2f\n",
+            newEntry.id,
+            newEntry.date,
+            newEntry.type,
+            newEntry.category,
+            newEntry.description,
+            newEntry.amount);
+    fclose(file);
+    printf("Entry added successfully with ID %d.\n", newEntry.id);
+}
+
+#include <stdio.h>
+#include <string.h>
+#include "budget.h"
+
+void modifyEntry(Entry entries[], int count, const char *filename) {
+    int targetId;
+    printf("Enter the ID of the entry to modify: ");
+    scanf("%d", &targetId);
+
+    int found = 0;
+    for (int i = 0; i < count; i++) {
+        if (entries[i].id == targetId) {
+            found = 1;
+            printf("\nCurrent Entry:\n");
+            printf("ID: %d\n", entries[i].id);
+            printf("Date: %s\n", entries[i].date);
+            printf("Type: %s\n", entries[i].type);
+            printf("Category: %s\n", entries[i].subtype);
+            printf("Description: %s\n", entries[i].description);
+            printf("Amount: %.2f\n", entries[i].amount);
+
+            int choice;
+            printf("\nWhat would you like to modify?\n");
+            printf("1. Date\n");
+            printf("2. Amount\n");
+            printf("Choice: ");
+            scanf("%d", &choice);
+
+            if (choice == 1) {
+                char newDate[11];
+                printf("Enter new date (YYYY-MM-DD): ");
+                scanf("%s", newDate);
+                strncpy(entries[i].date, newDate, sizeof(entries[i].date));
+                printf("Date updated successfully.\n");
+            } else if (choice == 2) {
+                float newAmount;
+                printf("Enter new amount: ");
+                scanf("%f", &newAmount);
+                entries[i].amount = newAmount;
+                printf("Amount updated successfully.\n");
+            } else {
+                printf("Invalid choice. No changes made.\n");
+                return;
+            }
+
+            // Overwrite the file
+            FILE *file = fopen(filename, "w");
+            if (!file) {
+                printf("Error: Could not open file for writing.\n");
+                return;
+            }
+
+            for (int j = 0; j < count; j++) {
+                fprintf(file, "%d|%s|%s|%s|%s|%.2f\n",
+                        entries[j].id,
+                        entries[j].date,
+                        entries[j].type,
+                        entries[j].subtype,
+                        entries[j].description,
+                        entries[j].amount);
+            }
+
+            fclose(file);
+            printf("Entry updated successfully.\n");
+            break;
+        }
+    }
+
+    if (!found) {
+        printf("No entry with ID %d found.\n", targetId);
+    }
+}
+
+void filterByMonth(Entry entries[], int count) {
+    int year, month;
+    char targetPrefix[8]; // "YYYY-MM" + null terminator
+
+    printf("Enter year (e.g., 2025): ");
+    scanf("%d", &year);
+    printf("Enter month (1-12): ");
+    scanf("%d", &month);
+
+    snprintf(targetPrefix, sizeof(targetPrefix), "%04d-%02d", year, month);
+
+    printf("\nTransactions for %s\n", targetPrefix);
+    printf("===========================\n\n");
+
+    printf("%-5s %-12s %-10s %-12s %-20s %-10s\n", "ID", "Date", "Type", "Category", "Description", "Amount");
+    printf("------------------------------------------------------------------------\n");
+
+    int found = 0;
+    for (int i = 0; i < count; i++) {
+        if (strncmp(entries[i].date, targetPrefix, 7) == 0) {
+            printf("%-5d %-12s %-10s %-12s %-20s $%.2f\n",
+                   entries[i].id,
+                   entries[i].date,
+                   entries[i].type,
+                   entries[i].subtype,
+                   entries[i].description,
+                   entries[i].amount);
+            found = 1;
+        }
+    }
+
+    if (!found) {
+        printf("No entries found for %s.\n", targetPrefix);
+    }
 }
